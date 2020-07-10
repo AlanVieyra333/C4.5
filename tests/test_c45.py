@@ -28,18 +28,13 @@ class testC45Methods(unittest.TestCase):
 		self.__testTree(c1)
 
 	def __testTree(self, tree):
-		success_predict = 0
-		for data_row in tree.data:
-			prediction = tree.predict(data_row)
-			# print(prediction)
-			# print(data_row[-1])
-			if prediction == data_row[-1]:
-				success_predict += 1
+		accuracy = tree.score(tree.dataTrain)
+		precision = tree.score(tree.dataTest)
 
-		if success_predict == len(tree.data):
-			self.assertEqual(True, True, msg ="Accuracy: " + str(success_predict) + "/" + str(len(tree.data)))
+		if accuracy == 1.0 and precision == 1.0:
+			self.assertEqual(True, True, msg ="Accuracy: " + str(accuracy) + ", precision: " + str(precision))
 		else:
-			self.assertEqual(False, True, msg="Accuracy: " + str(success_predict) + "/" + str(len(tree.data)))
+			self.assertEqual(False, True, msg="Accuracy: " + str(accuracy) + ", precision: " + str(precision))
 
 
 def main():

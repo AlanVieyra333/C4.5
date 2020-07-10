@@ -1,5 +1,6 @@
 import math
-
+from sklearn import model_selection, metrics
+import numpy as np
 
 class C45:
 
@@ -9,6 +10,8 @@ class C45:
         self.filePathToData = pathToData
         self.filePathToNames = pathToNames
         self.data = []
+        self.dataTrain = []
+        self.dataTest = []
         self.classes = []
         self.numAttributes = -1
         self.attrValues = {}
@@ -17,7 +20,12 @@ class C45:
 
     def fetchData(self):
         with open(self.filePathToNames, "r") as file:
-            classes = file.readline()
+            line = ""
+            # Omitir comentarios
+            for line in file:
+                if line[0] != "|":
+                    break
+            classes = line
             self.classes = [x.strip() for x in classes.split(",")]
             # add attributes
             for line in file:
@@ -39,6 +47,9 @@ class C45:
                     self.data[index][attr_index] = float(
                         self.data[index][attr_index])
 
+        self.dataTrain, self.dataTest = model_selection.train_test_split(
+            self.data, test_size=0.3, random_state=3)
+
     def printTree(self):
         self.printNode(self.tree)
 
@@ -47,12 +58,14 @@ class C45:
             if node.threshold is None:
                 # discrete
                 for index, child in enumerate(node.children):
+                    valuesForAttribute = self.attrValues[node.label]
                     if child.isLeaf:
-                        print(indent + node.label + " = " +
-                              str(index + 1) + " : " + child.label)
+                        if child.label != 'Fail':
+                            print(indent + node.label + " = " +
+                                valuesForAttribute[index] + " : " + child.label)
                     else:
                         print(indent + node.label + " = " +
-                              str(index + 1) + " : ")
+                              valuesForAttribute[index] + " : ")
                         self.printNode(child, indent + "	")
             else:
                 # numerical
@@ -75,7 +88,7 @@ class C45:
                     self.printNode(rightChild, indent + "	")
 
     def generateTree(self):
-        self.tree = self.recursiveGenerateTree(self.data, self.attributes)
+        self.tree = self.recursiveGenerateTree(self.dataTrain, self.attributes)
 
     def recursiveGenerateTree(self, curData, curAttributes):
         allSame = self.allSameClass(curData)
@@ -93,6 +106,11 @@ class C45:
         else:
             (best, best_threshold, splitted) = self.splitAttribute(
                 curData, curAttributes)
+            
+            if best == -1:
+                # return a node with the majority class
+                majClass = self.getMajClass(curData)
+                return Node(True, majClass, None)
             remainingAttributes = curAttributes[:]
             remainingAttributes.remove(best)
             node = Node(False, best, best_threshold)
@@ -228,7 +246,8 @@ class C45:
             if node.threshold is None:
                 # discrete
                 for index, child in enumerate(node.children):
-                    if data_row[indexOfAttribute] == str(index + 1):
+                    valuesForAttribute = self.attrValues[node.label]
+                    if data_row[indexOfAttribute] == valuesForAttribute[index]:
                         return self.predictNode(child, data_row)
             else:
                 # numerical
@@ -239,9 +258,17 @@ class C45:
                     return self.predictNode(leftChild, data_row)
                 else:
                     return self.predictNode(rightChild, data_row)
-    
-    def predict(self, data_row):
-        return self.predictNode(self.tree, data_row)
+
+    def predict(self, data):
+        predicted = []
+        for data_row in data:
+            predicted.append(self.predictNode(self.tree, data_row))
+        return predicted
+
+    def score(self, data):
+        predicted = self.predict(data)
+        return metrics.accuracy_score(np.array(data)[:, -1], predicted)
+
 
 class Node:
     def __init__(self, isLeaf, label, threshold):
